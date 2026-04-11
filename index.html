@@ -4,45 +4,74 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Vlink — Все ваши ссылки</title>
+
+<!-- Preconnect для быстрой загрузки -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@700&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<!-- Supabase SDK с запасными CDN для России -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://emwexykhqehuwdvryhgi.supabase.co" crossorigin>
+
+<!-- Шрифты через display=swap чтобы не блокировать рендер -->
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+
+<!-- Preload критических скриптов параллельно -->
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" as="script" crossorigin>
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" as="script" crossorigin>
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" as="script" crossorigin>
+<link rel="preload" href="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" as="script" crossorigin>
+
+<!-- Мгновенный экран загрузки (показывается ДО загрузки JS) -->
+<style>
+#boot-screen {
+  position:fixed;inset:0;background:#080b10;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:99999;transition:opacity .4s ease;
+}
+#boot-screen.hidden{opacity:0;pointer-events:none}
+.boot-logo{
+  font-size:3.5rem;font-weight:900;letter-spacing:.15em;color:#fff;
+  background:linear-gradient(135deg,#4f9eff,#7b5ea7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:32px;font-family:system-ui,sans-serif;
+}
+.boot-bar{width:160px;height:2px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+.boot-fill{height:100%;background:linear-gradient(90deg,#4f9eff,#7b5ea7);border-radius:2px;
+  animation:bootfill 1.8s ease forwards}
+@keyframes bootfill{from{width:0}to{width:100%}}
+</style>
 <script>
-  // Загружаем Supabase SDK с fallback на случай блокировки CDN
+// Показываем boot screen сразу, до любых скриптов
+document.write('<div id="boot-screen"><div class="boot-logo">VLINK</div><div class="boot-bar"><div class="boot-fill"></div></div></div>');
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin></script>
+<!-- Supabase SDK -->
+<script>
+  window.__supabaseReady = new Promise(r => { window.__supabaseResolve = r; });
   (function() {
     const URLS = [
       'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
       'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
-      'https://esm.run/@supabase/supabase-js@2'
     ];
     let idx = 0;
     function tryLoad() {
-      if (idx >= URLS.length) { console.error('Supabase не загрузился ни с одного CDN'); return; }
+      if (idx >= URLS.length) { window.__supabaseResolve(null); return; }
       const s = document.createElement('script');
-      s.src = URLS[idx++];
-      s.onload = initSupabase;
-      s.onerror = tryLoad;
+      s.src = URLS[idx++]; s.crossOrigin = 'anonymous';
+      s.onload = initSupabase; s.onerror = tryLoad;
       document.head.appendChild(s);
     }
     function initSupabase() {
-      const SUPABASE_URL = 'https://emwexykhqehuwdvryhgi.supabase.co';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtd2V4eWtocWVodXdkdnJ5aGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTQ4MjQsImV4cCI6MjA5MTQ3MDgyNH0.S8R8P_0uQmfsn7-eqFPZiD9assDa9wI_j-0dm0YKPxM';
-      const client = (window.supabase || supabase).createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-          persistSession: true,
-          storageKey: 'vlink-auth',
-          storage: window.localStorage,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        }
-      });
+      const client = (window.supabase || supabase).createClient(
+        'https://emwexykhqehuwdvryhgi.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtd2V4eWtocWVodXdkdnJ5aGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTQ4MjQsImV4cCI6MjA5MTQ3MDgyNH0.S8R8P_0uQmfsn7-eqFPZiD9assDa9wI_j-0dm0YKPxM',
+        { auth: { persistSession:true, storageKey:'vlink-auth', storage:window.localStorage, autoRefreshToken:true, detectSessionInUrl:true } }
+      );
       window.__supabase = client;
-      if (window.__supabaseResolve) window.__supabaseResolve(client);
+      window.__supabaseResolve(client);
     }
-    window.__supabaseReady = new Promise(r => { window.__supabaseResolve = r; });
     tryLoad();
   })();
 </script>
@@ -2314,6 +2343,12 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+// Скрываем boot screen после рендера
+requestAnimationFrame(() => {
+  const boot = document.getElementById('boot-screen');
+  if (boot) { boot.classList.add('hidden'); setTimeout(() => boot.remove(), 500); }
+});
 </script>
 </body>
 </html>
