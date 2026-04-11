@@ -966,8 +966,10 @@ function AuthProvider({children}) {
           const profile = await loadProfile(client, session.user);
           setUser(profile);
           setLoading(false);
-          // После OAuth редиректа — переходим в dashboard
-          if (event === 'SIGNED_IN') navigate('/dashboard');
+          // Редиректим в dashboard ТОЛЬКО после OAuth (есть access_token в URL)
+          if (event === 'SIGNED_IN' && window.location.hash.includes('access_token')) {
+            navigate('/dashboard');
+          }
         } else {
           setLoading(false);
         }
@@ -1534,7 +1536,7 @@ function ColorPicker({label, value, onChange}) {
 }
 
 function Dashboard() {
-  const {user, isAuthenticated, updateUser} = useAuth();
+  const {user, isAuthenticated, updateUser, loading} = useAuth();
   const [tab, setTab] = useState('settings');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1583,8 +1585,8 @@ function Dashboard() {
   const [editUrl, setEditUrl] = useState('');
 
   useEffect(() => {
-    if (!isAuthenticated) navigate('/login');
-  }, [isAuthenticated]);
+    if (!loading && !isAuthenticated) navigate('/login');
+  }, [isAuthenticated, loading]);
 
   const save = async () => {
     setSaving(true);
@@ -1654,6 +1656,7 @@ function Dashboard() {
     {id:'share', label:'Поделиться', icon:'📤'},
   ];
 
+  if (loading) return <div className="full-center"><div className="spinner"/></div>;
   if (!isAuthenticated) return null;
 
   return <div className="dashboard">
@@ -2280,9 +2283,9 @@ function PublicPage({username}) {
 // ── App ───────────────────────────────────────────────────────────────────────
 function AppShell() {
   const {page, params} = useRoute();
-  const {isAuthenticated} = useAuth();
   const showNav = page !== 'public';
 
+  // Публичная страница — без авторизации, просто читает из Supabase
   if (page === 'public') return <PublicPage username={params.username}/>;
 
   return <>
@@ -2294,13 +2297,20 @@ function AppShell() {
   </>;
 }
 
-function App() {
+function AppWithAuth() {
+  const {page, params} = useRoute();
+  // Публичная страница не ждёт загрузки авторизации
+  if (page === 'public') return <PublicPage username={params.username}/>;
   return <AuthProvider>
-    <RouterProvider>
-      <FirebaseSetupBanner/>
-      <AppShell/>
-    </RouterProvider>
+    <FirebaseSetupBanner/>
+    <AppShell/>
   </AuthProvider>;
+}
+
+function App() {
+  return <RouterProvider>
+    <AppWithAuth/>
+  </RouterProvider>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
